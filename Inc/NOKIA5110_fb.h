@@ -34,14 +34,14 @@
 #define NORMALIZA_PIXELS()		cmd_LCD(0x0C)
 //-------------------------------------------------------------------------------------
 
-struct pontos_t{
+typedef struct pontos{
 	uint32_t x1;
 	uint32_t y1;
 	uint32_t x2;
 	uint32_t y2;
 	uint32_t x3;
 	uint32_t y3;	
-};
+}pontos_t;
 
 typedef struct figura
 {
@@ -65,11 +65,11 @@ void limpa_LCD();
 void string_LCD_Nr(char * msg, uint32_t valor, uint32_t quant2Print);
 
 void desenha_pixel(uint32_t x, uint32_t y, uint32_t propriedade);
-void desenha_linha(struct pontos_t *coord, uint32_t prop);
+void desenha_linha(struct pontos *coord, uint32_t prop);
 void desenha_circulo(int32_t x0, int32_t y0, int32_t radius, uint32_t prop);
-void desenha_retangulo(struct  pontos_t *t, uint32_t prop);
-void desenha_triangulo(struct  pontos_t *p, uint32_t prop);
-void desenha_fig(struct  pontos_t *p, const figura_t *figura);
+void desenha_retangulo(struct  pontos *t, uint32_t prop);
+void desenha_triangulo(struct  pontos *p, uint32_t prop);
+void desenha_fig(struct  pontos *p, const figura_t *figura);
 
 void escreve_Nr_Peq(uint32_t x, uint32_t y, int32_t valor, uint32_t quant2Print);
 

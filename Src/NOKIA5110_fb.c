@@ -293,7 +293,7 @@ void desenha_pixel(uint32_t x,				/* ponto horizontal para o pixel: 0 -> 83 (esq
 //-----------------------------------------------------------------------------------------------
 // Desenha linha - ALGORITMO DE BRESENHAM - (http://www.etechplanet.com/codesnippets/computer-graphics-draw-a-line-using-bresenham-algorithm.aspx)
 //-----------------------------------------------------------------------------------------------
-void desenha_linha(struct  pontos_t *p,		/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, passagem dos pontos por struct	*/
+void desenha_linha(struct  pontos *p,		/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, passagem dos pontos por struct	*/
 						   uint32_t prop)	/* 0 =  paga pixel, 1 = liga pixel				*/
 {
 	uint32_t i, x, y, x1, y1, x2, y2;
@@ -423,11 +423,11 @@ void desenha_circulo(int32_t x0, int32_t y0,int32_t radius,	// valores int se fa
 *		|	
 *		------------p2
 */
-void desenha_retangulo(struct  pontos_t *p,	uint32_t prop)	/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, passagem dos pontos por struct	*/
+void desenha_retangulo(struct  pontos *p,	uint32_t prop)	/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, passagem dos pontos por struct	*/
 															/*  ponto superior esquerdo e ponto inferior direito					*/
 															/* 0 =  apaga pixel, 1 = liga pixel, 									*/
 															/* 2 = preenchimento pixel apagado, 3 = preenchimento pixel ligado		*/
-{	struct pontos_t pr;
+{	struct pontos pr;
 	uint32_t pxl, i;
 			
 	if(prop < 2)								// desenho com quatro linhas
@@ -471,10 +471,10 @@ void desenha_retangulo(struct  pontos_t *p,	uint32_t prop)	/*  p.x1=x1, p.y1=y1,
 *		  /		 \
 *		p1--------p3
 */
-void desenha_triangulo(struct  pontos_t *p,		/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, , p.x3=x3, p.y3=y3				*/
+void desenha_triangulo(struct  pontos *p,		/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2=y2, , p.x3=x3, p.y3=y3				*/
 												/*  ponto superior esquerdo e ponto inferior direito					*/
 								uint32_t prop)	/* 0 =  apaga pixel, 1 = liga pixel,									*/
-{	struct pontos_t pt;
+{	struct pontos pt;
 	
 	pt.x1 = p->x1; pt.y1 = p->y1;
 	pt.x2 = p->x2; pt.y2 = p->y2;
@@ -518,7 +518,7 @@ void desenha_triangulo(struct  pontos_t *p,		/*  p.x1=x1, p.y1=y1, p.x2=x2, p.y2
 *		figura[nr_linhas][nr colunas], onde cada elemento é composto por 1 byte de informação
 *									   cada bit é um pixel (0 ou 1)
 */
-void desenha_fig(struct  pontos_t *p,		// [p.x1 p.y1] para o ponto P1 de incersao da figura
+void desenha_fig(struct  pontos *p,		// [p.x1 p.y1] para o ponto P1 de incersao da figura
 											// Caso se deseje alterar a largura e altura da figura
 											//    p.x2  e  p.y2 devem ser diferentes de zero, determinando as novas medidas
 											// Caso se deseje imprimir a partir de um ponto no meio da figura (se não empregados devem ser zero)

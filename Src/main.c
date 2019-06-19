@@ -19,21 +19,35 @@ DMA_HandleTypeDef hdma_adc1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-volatile uint32_t ADC_VALOR[2];
-uint32_t adcDmaBuffer[2];
-__IO ITStatus ADCReady = RESET;
-
-static uint32_t media_eixoX, media_eixoY;
-static struct pontos_t p;
 typedef struct Player{
 	uint32_t scores;
-	uint32_t missings;
+	uint32_t missing;
+	uint8_t smash;
 }player_t;
 
-player_t player;
-Missings_t missings;
+typedef struct moles{
+	pontos_t Top_p;
+	pontos_t Middle_p;
+	pontos_t Bottom_p;
+}moles_t;
 
-//missingsSquare[0]={ZeroMole};
+volatile uint32_t ADC_VALOR[2];
+uint32_t adcDmaBuffer[2];
+
+
+static pontos_t Mr_p;
+static pontos_t missing_p;
+
+static uint32_t j[5];  //a pos de cada mole gerado (são 5 posições possiveis)
+static uint32_t mole_num= 0;  //qtd de moles por rodada
+static uint32_t total_mole_n= 0;  //qtd total de moles
+static uint32_t last_missing = 0;
+static uint32_t media_eixoX, media_eixoY;
+
+xTaskHandle vTask_LCD_Print_Handle;
+
+player_t player;
+moles_t mole[5];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -41,15 +55,17 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
-//void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
+void setMolesPos();
 void Start_Game();
+void create_tasks();
+void restart_game();
+void vTask_Game_Over(void *pvParameters);
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
 	if(hadc->Instance == ADC1)
@@ -67,74 +83,160 @@ void vTask_LCD_Print(void *pvParameters)
 }
 //---------------------------------------------------------------------------------------------------
 // Tarefa para imprimir um numero aleatorio
-void vTask_Nr_Print(void *pvParameters)
+void vTask_CreateMoles(void *pvParameters)
 {
-	//uint32_t rand_prng;
-	//(83 - fig.largura)/2 +1 = 38
-	//static uint32_t x = (83-29)/2, y = (47-19)/2;
-	//static int32_t dif_eixoX, dif_eixoY;
-
-	//p.x1 = 83-9; p.y1 = 47-8;
-	p.x1 = 0; p.y1 = 0;
-	p.x2 = 0; p.y2 = 0;
-	p.x3 = 0; p.y3 = 0;
-
-	//while(1)
-	/*{
-		//rand_prng = prng_LFSR();
-		//escreve_Nr_Peq(10,10, rand_prng, 10);
-		escreve_Nr_Peq(10,20, media_eixoX, 10);
-		escreve_Nr_Peq(10,30, media_eixoY, 10);
-		goto_XY(0,0);
-		//desenha_fig(&p, &nave0f);
-
-		//string_LCD_Nr("Nr=", rand_prng, 10);			// escreve uma mensagem com um número
-
-		vTaskDelay(500);
-	}*/
+	uint8_t i;
 	while(1)
 	{
+		mole_num = (prng_LFSR() % 5) + 1;  //quantidade de moles por rodada 1 a 5
+		total_mole_n += mole_num;
+		for(i = 0; i<mole_num; i++){
+			j[i] = (prng_LFSR() % 4);  //sortear a pos de cada mole e armazenar num vetor 0 a 4
+			desenha_fig(&mole[j[i]].Bottom_p, &Bottom_mole);
+			vTaskDelay(MS(500));
+			desenha_fig(&mole[j[i]].Middle_p, &Middle_mole);
+			vTaskDelay(MS(500));
+			desenha_fig(&mole[j[i]].Top_p, &Top_mole);
+			vTaskDelay(MS(500));
+		}
+		vTaskDelay(MS(500));
+		for(i = 0; i<mole_num; i++){  //apagar os moles gerados anteriormente
+			desenha_fig(&mole[j[i]].Top_p, &delete_Top_mole);
+			desenha_fig(&mole[j[i]].Middle_p, &delete_Middle_mole);
+			desenha_fig(&mole[j[i]].Bottom_p, &delete_Bottom_mole);
+		}
 	}
 }
 
+void vTask_checkScores(void *pvParameters){
+	pontos_t smash_p;
+	smash_p.y1 = 21;
+
+	while(1){
+		if(player.smash){
+			for(uint8_t i = 0; i < mole_num; i++){
+				if((Mr_p.x1) >= mole[i].Top_p.x1  && (Mr_p.x1) <= ((mole[i].Top_p.x1)+10)){
+					smash_p.x1 = mole[i].Top_p.x1;
+					desenha_fig(&smash_p, &smash);
+					vTaskDelay(MS(60));
+					desenha_fig(&smash_p, &delete_smash);
+					escreve_Nr_Peq(40,42,player.scores++, 3);
+					desenha_fig(&mole[i].Top_p, &delete_Top_mole);
+					desenha_fig(&mole[i].Middle_p, &delete_Middle_mole);
+					desenha_fig(&mole[i].Bottom_p, &delete_Bottom_mole);
+				}
+				else if ((Mr_p.x1+29) >= mole[i].Top_p.x1  && (Mr_p.x1+29) <= ((mole[i].Top_p.x1)+10)) {
+					smash_p.x1 = mole[i].Top_p.x1;
+					desenha_fig(&smash_p, &smash);
+					vTaskDelay(MS(60));
+					desenha_fig(&smash_p, &delete_smash);
+					escreve_Nr_Peq(40,42,player.scores++, 3);
+					desenha_fig(&mole[i].Top_p, &delete_Top_mole);
+					desenha_fig(&mole[i].Middle_p, &delete_Middle_mole);
+					desenha_fig(&mole[i].Bottom_p, &delete_Bottom_mole);
+				}
+			}
+		}
+		player.smash = 0;
+	}
+}
+
+void vTask_missings_update(void *pvParameters){
+	uint32_t x=0;
+
+	while(1){
+		if(total_mole_n > player.scores){
+			player.missing = total_mole_n - player.scores;
+
+			if(player.missing > last_missing){
+				x = player.missing - last_missing;
+				last_missing = player.missing;
+				for(uint8_t k = 0; (k < x) && (missing_p.x1 != 0) ; k++){
+					missing_p.x1--;
+					desenha_fig(&missing_p, &life_line);
+					vTaskDelay(MS(20));
+				}
+			}
+			if(missing_p.x1 == 0){
+				xTaskCreate(vTask_Game_Over, "Task 7", 100, NULL, 2, NULL);
+				vTaskDelay(MS(1000));
+			}
+		}
+
+	}
+}
+
+void vTask_Game_Over(void *pvParameters){
+	char buffer[2];
+	while(1){
+		vTaskPrioritySet(vTask_LCD_Print_Handle,2);		//coloca a prioridade de atualizar o LCD no mesmo nível desta tarefa
+		limpa_LCD();
+		goto_XY(15, 1);
+		string_LCD("Game-Over");
+
+		goto_XY(20, 2);
+		string_LCD("Scores");
+
+		goto_XY(20, 3);
+		itoa(player.scores, buffer, 10);
+		string_LCD(buffer);
+
+		vTaskDelay(MS(4000));
+
+		// Da opção de novo jogo
+		limpa_LCD();
+		goto_XY(5, 1);
+		string_LCD("Press Button");
+		goto_XY(32, 2);
+		string_LCD("for");
+		goto_XY(18, 3);
+		string_LCD("New Game");
+
+		// enquando nao pressionar joystick fica travado
+		while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15));
+
+		restart_game();
+
+		vTaskPrioritySet(vTask_LCD_Print_Handle,1);  //retornar a prioridade original
+
+		vTaskDelete(NULL);
+	}
+}
 void vTask_move_MrWatchAndGame(void *pvParameters)
 {
-	static uint32_t x = (83-29)/2, y = (47-19)/2;  //(83 - fig.largura)/2 +1
-	static int32_t dif_eixoX, dif_eixoY;
+	static uint32_t x = (83-29)/2;
+	static int32_t dif_eixoX;
 
-	p.x1 = 0; p.y1 = 0;
-	p.x2 = 0; p.y2 = 0;
-	p.x3 = 0; p.y3 = 0;
+	Mr_p.x1 = 0; Mr_p.y1 = 2;  //y é fixo
+	Mr_p.x2 = 0; Mr_p.y2 = 0;
+	Mr_p.x3 = 0; Mr_p.y3 = 0;
 
 	while(1)
 	{
 		dif_eixoX = 2048 - media_eixoX;
-		dif_eixoY = 2048 - media_eixoY;
 
 		if(dif_eixoX < -100)
 		{
 			if(x>0) x--;
 		}
-		else if(dif_eixoX > 100) // 100 = Delta de tolerancia no deslocamento do eixo
+		else if(dif_eixoX > 100) // 100 = Delta de tolerância no deslocamento do eixo
 		{
 			if(x<55) x++;
 		}
 		// ------------------------------------------------------------------------
-		if(dif_eixoY < -100)
-		{
-			if(y<29) y++;
-		}
+		Mr_p.x1 = x;
 
-		else if(dif_eixoY > 100)
-		{
-			if(y>0) y--;
+		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15) == 0){
+			player.smash = 1;
+			desenha_fig(&Mr_p,&MrGameAndWatch_smash);
+			vTaskDelay(MS(40));
+			desenha_fig(&Mr_p,&delete_MrGameAndWatch);
+		}else{
+			player.smash = 0;
+			desenha_fig(&Mr_p,&MrGameAndWatch);
+			vTaskDelay(MS(40));
+			desenha_fig(&Mr_p,&delete_MrGameAndWatch);
 		}
-		// ------------------------------------------------------------------------
-		p.x1 = x;  p.y1 = 2;
-
-		desenha_fig(&p,&MrGameAndWatch);
-		vTaskDelay(MS(20));					// atraso para a nave não se movimentar muito rápido.
-		desenha_fig(&p,&delete_MrGameAndWatch);
 	}
 }
 
@@ -159,24 +261,14 @@ void vTask_read_joystick(void *pvParameters)
 }
 //---------------------------------------------------------------------------------------------------
 /* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  *
-  * @retval None
-  */
 int main(void)
 {
-  /* MCU Configuration----------------------------------------------------------*/
- player.missings = 0;
- player.scores = 222;
- set_missingFigures(&missings,&ZeroMole,0 );
+	/* MCU Configuration----------------------------------------------------------*/
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
 
 	/* Initialize all configured peripherals */
@@ -193,18 +285,14 @@ int main(void)
 	inic_LCD();
 	limpa_LCD();
 
-	// --------------------------------------------------------------------------------------
 	// inicializa tela
 	Start_Game();
 
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(vTask_LCD_Print, "Task 1", 100, NULL, 1,NULL);
-	xTaskCreate(vTask_read_joystick, "Task 2", 100, NULL, 1, NULL);
-	xTaskCreate(vTask_Nr_Print, "Task 3", 100, NULL, 1,NULL);
-	xTaskCreate(vTask_move_MrWatchAndGame, "Task 4", 100, NULL, 1,NULL);
+	create_tasks();
 
 	/* Start scheduler */
-	vTaskStartScheduler();	// apos este comando o RTOS passa a executar as tarefas
+	vTaskStartScheduler();
 
     while (1);
 }
@@ -371,8 +459,38 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void setMolesPos(){
+	mole[0].Bottom_p.x1 = 0;   mole[0].Bottom_p.y1 = 35;
+	mole[0].Middle_p.x1 = 4;   mole[0].Middle_p.y1 = 29;
+	mole[0].Top_p.x1 = 8;  	   mole[0].Top_p.y1 = 24;
+
+	mole[1].Bottom_p.x1 = 17;  mole[1].Bottom_p.y1 = 35;
+	mole[1].Middle_p.x1 = 21;   mole[1].Middle_p.y1 = 29;
+	mole[1].Top_p.x1 = 25;      mole[1].Top_p.y1 = 24;
+
+	mole[2].Bottom_p.x1 = 34;  mole[2].Bottom_p.y1 = 35;
+	mole[2].Middle_p.x1 = 38;   mole[2].Middle_p.y1 = 29;
+	mole[2].Top_p.x1 = 42;      mole[2].Top_p.y1 = 24;
+
+	mole[3].Bottom_p.x1 = 51;  mole[3].Bottom_p.y1 = 35;
+	mole[3].Middle_p.x1 = 55;   mole[3].Middle_p.y1 = 29;
+	mole[3].Top_p.x1 = 59;      mole[3].Top_p.y1 = 24;
+
+	mole[4].Bottom_p.x1 = 68;  mole[4].Bottom_p.y1 = 35;
+	mole[4].Middle_p.x1 = 72;   mole[4].Middle_p.y1 = 29;
+	mole[4].Top_p.x1 = 76;      mole[4].Top_p.y1 = 24;
+}
+
 void Start_Game(){
-	struct pontos_t p_line;
+	pontos_t p_line;
+
+	setMolesPos();
+
+    player.scores = 0;
+    player.smash = 0;
+    player.missing = 0;
+
+    missing_p.x1 = 33; missing_p.y1 = 40;
 
 	goto_XY(0, 0);
 	escreve2fb((unsigned char *) GameAndWatch_start);
@@ -385,11 +503,6 @@ void Start_Game(){
 	while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15)); // wait to joystick be pressed
 	limpa_LCD();
 
-	escreve2fb((unsigned char *) romexterminator_all);
-	imprime_LCD();
-	HAL_Delay(1000);
-	limpa_LCD();
-
 	//draw a line
 	p_line.x1 = 0; p_line.y1 = 25;
 	p_line.x2 = 0; p_line.y2 = 0;
@@ -400,14 +513,45 @@ void Start_Game(){
 		p_line.x1 = p_line.x1 + 17;
 		desenha_fig(&p_line, &line);
 	}
-	p_line.x1 = 0; p_line.y1 = 47-7;
-	p_line.x2 = 0; p_line.y2 = 0;
-	p_line.x3 = 0; p_line.y3 = 0;
-	desenha_fig(&p_line, (figura_t*)get_missingFigures(&missings, 0));
 
-	escreve_Nr_Peq(36,42,player.scores, 3);
+	p_line.x1 = 0; p_line.y1 = 38;
+	desenha_fig(&p_line, &LifeBar);
 
+	escreve_Nr_Peq(40,42,player.scores, 3);
+}
+void restart_game(){
+	limpa_LCD();
+	pontos_t p_line;
 
+	player.scores = 0;
+	player.smash = 0;
+	player.missing = 0;
+
+	total_mole_n = 0;
+	last_missing = 0;
+
+	missing_p.x1 = 33;
+	//draw a line
+	p_line.x1 = 0; p_line.y1 = 25;
+	desenha_fig(&p_line, &line);
+
+	for (uint8_t i=0; i<4; i++){
+		p_line.x1 = p_line.x1 + 17;
+		desenha_fig(&p_line, &line);
+	}
+
+	p_line.x1 = 0; p_line.y1 = 38;
+	desenha_fig(&p_line, &LifeBar);
+
+	escreve_Nr_Peq(40,42,player.scores, 3);
+}
+void create_tasks(){
+	xTaskCreate(vTask_LCD_Print, "Task 1", 100, NULL, 1,&vTask_LCD_Print_Handle);
+	xTaskCreate(vTask_checkScores, "Task 2", 100, NULL, 1,NULL);
+	xTaskCreate(vTask_read_joystick, "Task 3", 100, NULL, 1, NULL);
+	xTaskCreate(vTask_CreateMoles, "Task 4", 100, NULL, 1,NULL);
+	xTaskCreate(vTask_move_MrWatchAndGame, "Task 5", 100, NULL, 1,NULL);
+	xTaskCreate(vTask_missings_update, "Task 6", 100, NULL, 1,NULL);
 }
 /* USER CODE END 4 */
 
