@@ -16,7 +16,6 @@
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 TIM_HandleTypeDef htim3;
-//osThreadId defaultTaskHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -55,8 +54,6 @@ uint32_t notes_duration[3]={
 		4, 4, 2
 };
 
-uint32_t nota_freq;
-char *nome_nota;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -579,6 +576,7 @@ void CLR_moleFlag(){
 	mole[3].top_flag = 0;
 	mole[4].top_flag = 0;
 }
+
 void Start_Game(){
 	pontos_t p_line;
 
